@@ -1,13 +1,15 @@
 // src/components/TodoList.tsx
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
+import { API_URL } from '../api/api';
 import { Todo } from '../types/todo-type';
+import { TodoTile } from './TodoTile';
 
 interface TodoListProps {
   onSelectTodo: (id: number) => void;
 }
-interface FetchTodosParams {
+export interface FetchTodosParams {
   setTodos: React.Dispatch<React.SetStateAction<Todo[]>>;
   setFilteredTodos: React.Dispatch<React.SetStateAction<Todo[]>>;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
@@ -28,15 +30,27 @@ interface FetchTodosParams {
  */
 // remove eslint-disable-next-line @typescript-eslint/no-unused-vars when you use the parameters in the function
 export const fetchTodos = async ({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   setTodos,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   setFilteredTodos,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   setLoading,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   setError,
-}: FetchTodosParams): Promise<void> => {};
+}: FetchTodosParams): Promise<void> => {
+  try {
+    setLoading(true);
+
+    const response = await fetch(API_URL);
+    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+    const posts = (await response.json()) as Todo[];
+
+    setTodos(posts);
+    setFilteredTodos(posts);
+  } catch (e) {
+    setError((e as Error).message);
+  } finally {
+    setLoading(false);
+  }
+};
 /**
  * TodoList component fetches todos from the API and displays them in a list.
  * It also provides filter buttons to filter the todos based on their completion status.
@@ -45,28 +59,82 @@ export const fetchTodos = async ({
  */
 
 // remove the following line when you use onSelectTodo in the component
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 export const TodoList: React.FC<TodoListProps> = ({ onSelectTodo }) => {
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [filteredTodos, setFilteredTodos] = useState<Todo[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const FetchTodoProps: FetchTodosParams = {
+    setTodos,
+    setFilteredTodos,
+    setLoading,
+    setError,
+  };
+
+  // 0: all, 1: open, 2: completed
+  const [currentFilter, setCurrentFilter] = useState(0);
+
+  // useEffect Functions
+  useEffect(() => {
+    fetchTodos(FetchTodoProps);
+  }, []);
+
+  useEffect(() => {
+    setFilteredTodos(() => {
+      if (currentFilter !== 0) {
+        const shouldFilterComplete = currentFilter === 2;
+        return todos.filter((todo) => todo.completed === shouldFilterComplete);
+      } else {
+        return todos;
+      }
+    });
+  }, [currentFilter]);
+
+  // Handler Functions
+  const onHandleSetFilter = (filter: number) => {
+    setCurrentFilter(filter);
+    setError(null);
+  };
+
   return (
     <div className="todo-list">
       <h2>Todo List</h2>
-      <p>
-        These are the filter buttons. the tests depend on the data-testids; and use
-        provided styles. Implement click event handlers to change the filter state and
-        update the UI accordingly to show just those todo&apos;s. other hints: you can
-        change the styling of the button with <code>className</code> property. if the
-        className of a button is &quot;active&quot; it will use the{' '}
-        <code> .todo-button.completed</code> CSS style in App.css
-      </p>
       <div className="filter-buttons">
-        <button data-testid="filter-all">All</button>
-        <button data-testid="filter-open">Open</button>
-        <button data-testid="filter-completed">Completed</button>
+        <button
+          data-testid="filter-all"
+          className={currentFilter === 0 ? 'active' : 'inactive'}
+          onClick={() => onHandleSetFilter(0)}
+        >
+          All
+        </button>
+        <button
+          data-testid="filter-open"
+          className={currentFilter === 1 ? 'active' : 'inactive'}
+          onClick={() => onHandleSetFilter(1)}
+        >
+          Open
+        </button>
+        <button
+          data-testid="filter-completed"
+          className={currentFilter === 2 ? 'active' : 'inactive'}
+          onClick={() => onHandleSetFilter(2)}
+        >
+          Completed
+        </button>
       </div>
-      <p>
-        Show a list of todo&apos;s here. Make it so if you click a todo it calls the event
-        handler onSelectTodo with the todo id to show the individual todo
-      </p>
+      {loading ? (
+        <p>Loading todos</p>
+      ) : (
+        <div className="todo-list">
+          {error ? (
+            <h3>Error loading todos</h3>
+          ) : (
+            filteredTodos.map((todo) => TodoTile(todo, onSelectTodo))
+          )}
+        </div>
+      )}
     </div>
   );
 };
