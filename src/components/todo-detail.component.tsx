@@ -18,10 +18,11 @@ interface FetchTodoProps {
 const fetchTodo = async ({ todoId, setTodo, setLoading, setError }: FetchTodoProps) => {
   try {
     setLoading(true);
+
     const response = await fetch(`${API_URL}/${todoId}`);
+    if (!response.ok) throw new Error(`HTTP Error! Status: ${response.status}`);
 
     const post = (await response.json()) as Todo;
-    if (!response.ok) throw new Error(`HTTP Error! Status: ${response.status}`);
 
     setTodo(post);
   } catch (e) {
